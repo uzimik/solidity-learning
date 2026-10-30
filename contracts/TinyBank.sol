@@ -26,40 +26,29 @@ contract TinyBank {
         stakingToken = _stakingToken;
     }
 
-    function distributeReward(address to) internal {
+    modifier updateReward(address to) {
+        if (staked[to] > 0) {
         uint256 blocks = block.number - lastClaimedBlock[to];
         uint256 reward = (blocks * rewardPerBlock * staked[to]) / totalStaked;
         stakingToken.mint(reward, to);
+        }
         lastClaimedBlock[to] = block.number;
+        _;
     }
 
-    function stake(uint256 _amount) external {
+    function stake(uint256 _amount) external updateReward(msg.sender) {
         require(_amount >= 0, "cannot stake 0 amount");
-        distributeReward(msg.sender);
         stakingToken.transferFrom(msg.sender, address(this), _amount);
         staked[msg.sender] += _amount;
         totalStaked += _amount;
-        stakedUsers.push(msg.sender);
         emit Staked(msg.sender, _amount);
     }
 
-    function withdraw(uint256 _amount) external {
+    function withdraw(uint256 _amount) external updateReward(msg.sender) {
         require(staked[msg.sender] >= _amount, "insufficient staked token");
-        distributeReward(msg.sender);
         stakingToken.transfer(_amount, msg.sender);
         staked[msg.sender] -= _amount;
         totalStaked -= _amount;
-        if (staked[msg.sender] == 0) {
-            uint256 index;
-            for (uint i = 0; i < stakedUsers.length; i++) {
-                if (stakedUsers[i] == msg.sender) {
-                    index = i;
-                    break;
-                }
-            }
-            stakedUsers[index] = stakedUsers[stakedUsers.length - 1];
-            stakedUsers.pop();
-        }
         emit Withdraw(_amount, msg.sender);
     }
 }
